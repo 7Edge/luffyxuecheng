@@ -30,8 +30,6 @@ class AccountView(viewsets.GenericViewSet):
     # CORS 预检响应
     def options(self, request, *args, **kwargs):
         response_ob = Response()
-        response_ob['Access-Control-Allow-Methods'] = ''
-        response_ob['Access-Control-Allow-Headers'] = "Content-Type,"
         return response_ob
 
     # 登录action
