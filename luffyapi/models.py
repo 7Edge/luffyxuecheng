@@ -177,7 +177,7 @@ class CourseDetail(models.Model):
         verbose_name_plural = "07. 专题课程详情表"
 
     def __str__(self):
-        return self.course
+        return "%s" % self.course
 
 
 # 课程咨询常见问题
@@ -341,6 +341,9 @@ class UserInfo(models.Model):
     user = models.CharField(verbose_name='用户名', max_length=64)
     pwd = models.CharField(verbose_name='密码', max_length=64)
 
+    class Meta:
+        verbose_name_plural = '201. 学城用户表'
+
     def __str__(self):
         return self.user
 
@@ -350,3 +353,156 @@ class UserToken(models.Model):
     user = models.OneToOneField(verbose_name='用户', to='UserInfo', on_delete=models.CASCADE)
     token = models.CharField(verbose_name='token', max_length=128)
     expired = models.DateTimeField(verbose_name='有效期', auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = '202. 用户认证token表'
+
+    def __str__(self):
+        return "%s - %s" % (self.user, self.token)
+
+
+# 账号表
+class Account(models.Model):
+    """
+    账号
+    """
+    user = models.OneToOneField(verbose_name='用户', to="UserInfo", on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name_plural = '203. 账户表'
+
+    def __str__(self):
+        return self.user
+
+
+# 深科技 文章来源
+class ArticleSource(models.Model):
+    """
+    文章来源
+    """
+    name = models.CharField(verbose_name='文章来源', max_length=128, unique=True)
+
+    class Meta:
+        verbose_name_plural = '3001. 深科技文章来源'
+
+    def __str__(self):
+        return self.name
+
+
+# 文章资讯
+class Article(models.Model):
+    """
+    文章详情
+    未完：点赞反向查询了GenericRelation字段
+    """
+    title = models.CharField(verbose_name='标题', max_length=255, unique=True, db_index=True)
+    source = models.ForeignKey(verbose_name='来源', to='ArticleSource', on_delete=models.CASCADE)
+    article_type_choices = (
+        (0, '资讯'),
+        (1, '视频')
+    )
+    article_type = models.SmallIntegerField(verbose_name='文章类型', choices=article_type_choices, default=0)
+    brief = models.TextField(verbose_name='文章概要', max_length=512)
+    head_img = models.CharField(verbose_name='文章头贴图', max_length=255)
+    content = models.TextField(verbose_name='正文内容')
+    pub_date = models.DateTimeField(verbose_name='上架日期')
+    offline_date = models.DateTimeField(verbose_name='下架日期')
+    status_choices = (
+        (0, '在线'),
+        (1, '下线')
+    )
+    status = models.SmallIntegerField(verbose_name='文章状态', choices=status_choices, default=0)
+    order = models.SmallIntegerField(verbose_name='权重', default=0, help_text='文章想置顶，可以把数字调大，'
+                                                                             '不要超过1000')
+    vid = models.CharField(verbose_name='视频VID', max_length=128, help_text='文章类型是视频，则需要添加视频VID',
+                           blank=True, null=True)
+    comment_num = models.SmallIntegerField(verbose_name='评论数', default=0)
+    agree_num = models.SmallIntegerField(verbose_name='点赞数', default=0)
+    view_num = models.SmallIntegerField(verbose_name='浏览数', default=0)
+    collect_num = models.SmallIntegerField(verbose_name='收藏数', default=0)
+
+    tags = models.ManyToManyField(verbose_name='标签', to="Tags", blank=True)
+
+    date = models.DateTimeField(verbose_name='创建日期', auto_now_add=True)
+
+    position_choices = (
+        (0, '信息流'),
+        (1, 'banner大图'),
+        (2, 'banner小图')
+    )
+    position = models.SmallIntegerField(verbose_name='位置', choices=position_choices, default=0)
+
+    # 评论反向查询字段
+    comment_num_qs = GenericRelation(to='Comment')
+
+    # 收藏反向查询字段
+    collect_num_qs = GenericRelation(to='Collection')
+
+    # 点赞反向查询字段
+
+    class Meta:
+        verbose_name_plural = '3002. 深科技文章表'
+
+    def __str__(self):
+        return self.title
+
+
+# 通用收藏表
+class Collection(models.Model):
+    """
+    通用收藏表
+    """
+    content_type = models.ForeignKey(verbose_name='类型', to=ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField(verbose_name='对象')
+    generic_fk_to_object = GenericForeignKey(ct_field='content_type', fk_field='object_id')
+
+    account = models.ForeignKey("Account", verbose_name='账号', on_delete=models.CASCADE)
+    date = models.DateTimeField(verbose_name='收藏日期', auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = '40001. 通用收藏表'
+        unique_together = ('content_type', 'object_id', 'account')
+
+
+# 通用评论表
+class Comment(models.Model):
+    """
+    通用评论表
+    """
+    content_type = models.ForeignKey(verbose_name='类型', to=ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField(verbose_name='对象')
+    generic_fk_to_object = GenericForeignKey(ct_field='content_type', fk_field='object_id')
+
+    p_node = models.ForeignKey(verbose_name='父评论', to='self', on_delete=models.CASCADE, blank=True, null=True)
+    content = models.TextField(verbose_name='内容', max_length=1024)
+    account = models.ForeignKey(verbose_name='账号', to='Account', on_delete=models.CASCADE)
+    disagree_number = models.IntegerField(verbose_name='踩', default=0)
+    agree_number = models.IntegerField(verbose_name='赞', default=0)
+    date = models.DateTimeField(verbose_name='评论日期', auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = '40002. 通用评论表'
+
+    def __str__(self):
+        return self.content
+
+
+# 通用标签表
+class Tags(models.Model):
+    """
+    这里的标签，不是通过contenttype,是利用一个分类，这种在关联查询时，就必须自己知道类型,不是用表名来分类。
+    """
+    tag_type_choices = (
+        (0, '文章标签'),
+        (1, '课程评价标签'),
+        (2, '用户感兴趣技术标签')
+    )
+    tag_type = models.SmallIntegerField(verbose_name='标签类型', choices=tag_type_choices)
+    name = models.CharField(verbose_name='标签名', max_length=64)
+
+    class Meta:
+        unique_together = ('name', 'tag_type')
+        verbose_name_plural = '40003. 标签集合表'
+
+    def __str__(self):
+        return "%s:%s" % (self.get_tag_type_display, self.name)
