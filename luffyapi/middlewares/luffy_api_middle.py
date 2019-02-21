@@ -38,7 +38,6 @@ class CorsMiddleWare(MiddlewareMixin):
 
     def process_response(self, request, response):
         """
-
         目前对所有app的响应都加了该头
         :param request:
         :param response:

@@ -14,20 +14,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import re_path, include
-# from django.shortcuts import resolve_url
-from django.shortcuts import HttpResponse
 from django.contrib.admin import site
-
-
-# from django.contrib.staticfiles.views import serve
-
-def test(request):
-    print(type(request))
-    return HttpResponse('Welcome to LuffyCity')
-
 
 urlpatterns = [
     re_path('admin/', site.urls),
-    re_path('test/', test, name='test'),
-    re_path('api/(?P<version>\w+)/', include(('luffyapi.urls', 'luffyapi'), namespace='luffyapi'))
+    re_path('api/(?P<version>\w+)/', include(('luffyapi.urls', 'luffyapi')))
 ]

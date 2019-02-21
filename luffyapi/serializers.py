@@ -6,16 +6,18 @@
 """
 luffy学城api序列化类
 """
-import os
+# import os
 from rest_framework import serializers
 from django.conf import settings
 
 from .models import CourseDetail, Course, Chapters
-from .models import UserInfo, UserToken
+from .models import UserInfo
+from .models import CourseSubCategory, CourseCategory
 
 from rest_framework.serializers import ListSerializer
 
 
+# 专题课程序列化
 class CourseModelSerializer(serializers.ModelSerializer):
     level = serializers.CharField(source='get_level_display')
     recommend_courses = serializers.SerializerMethodField()
@@ -42,6 +44,7 @@ class CourseModelSerializer(serializers.ModelSerializer):
         return rely_on_path + rel_path
 
 
+# 课程详情
 class CourseDetailModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseDetail
@@ -49,10 +52,41 @@ class CourseDetailModelSerializer(serializers.ModelSerializer):
         depth = 1
 
 
+# 章节详情
 class ChaptersModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapters
         fields = "__all__"
+
+
+# 主课程分类
+class CourseCategoryModelSerializer(serializers.ModelSerializer):
+    subcategory_url = serializers.HyperlinkedRelatedField(source='coursesubcategory_set',
+                                                          view_name='luffyapi:coursesubcategory-detail',
+                                                          read_only=True,
+                                                          many=True)
+
+    class Meta:
+        model = CourseCategory
+        fields = ['id', 'name', 'subcategory_url']
+
+
+# 子课程分类
+class CourseSubCategoryModelSerializer(serializers.ModelSerializer):
+    """
+    子课程分类 序列化
+    """
+    category_url = serializers.HyperlinkedRelatedField(source='category', view_name='luffyapi:coursecategory-detail',
+                                                       lookup_field='pk',
+                                                       lookup_url_kwarg='pk', read_only=True)
+
+    courses_url = serializers.HyperlinkedIdentityField(
+        view_name='luffyapi:coursesubcategory-get-courses',
+        read_only=True)
+
+    class Meta:
+        model = CourseSubCategory
+        fields = ['id', 'name', 'category', 'category_url', 'courses_url']
 
 
 # 用户密码序列化类

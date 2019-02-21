@@ -11,19 +11,22 @@ from uuid import uuid4
 from datetime import timedelta
 from pytz import timezone
 
-
 from rest_framework import viewsets
 from rest_framework.response import Response
-# from rest_framework.decorators import action
+
+from django.core.exceptions import ObjectDoesNotExist
 
 from luffyapi.models import UserToken, UserInfo
 from luffyapi.serializers import UserPwdModelSerializer
-
+from luffyapi.utils.customer_response import TokenResponse
 
 CHENGDU_TIMEZONE = timezone('Asia/Shanghai')
 
 
 class AccountView(viewsets.GenericViewSet):
+    """
+    用于用户认证相关接口
+    """
     queryset = UserInfo.objects.all()
     serializer_class = UserPwdModelSerializer
 
@@ -34,37 +37,38 @@ class AccountView(viewsets.GenericViewSet):
 
     # 登录action
     def login(self, request, version):
-        result = {
-            "code": 1000,
-            "version": version,
-        }
+        result = TokenResponse()
+        result.version = version
+
         user = request.data.get('user')
         pwd = request.data.get('pwd')
         serializer_obj = UserPwdModelSerializer(data={'user': user, 'pwd': pwd}, many=False)
-        if serializer_obj.is_valid():
-            valid_data = serializer_obj.validated_data
-            user_obj = self.queryset.filter(**valid_data).first()
-            if user_obj:
-                new_token = str(uuid4())
-                timedelta_obj = timedelta(days=1)
-                # expire_datetime = datetime.datetime.now() + timedelta_obj
-                expire_datetime = datetime.datetime.now(tz=CHENGDU_TIMEZONE) + timedelta_obj
-                try:
-                    token_obj, res = UserToken.objects.update_or_create(user=user_obj,
-                                                                        defaults={'token': new_token,
-                                                                                  'expired': expire_datetime})
-                    result['user_token'] = token_obj.token
-                    result['expired'] = token_obj.expired.strftime('%Y-%m-%d %H:%M:%S')
-                except Exception as e:
-                    result['code'] = 1003
-                    result['error'] = "获取Token异常：" + str(e)
-            else:
-                result['code'] = 1002
-                result['error'] = "用户名或密码错误！"
+
+        if not serializer_obj.is_valid():
+            result.code = 1001
+            result.error = serializer_obj.errors
+            return Response(result.dict)
+
+        valid_data = serializer_obj.validated_data
+        try:
+            user_obj = self.queryset.get(**valid_data)
+            new_token = str(uuid4())
+            timedelta_obj = timedelta(days=1)
+            # 计算获得token过期时间
+            expire_datetime = datetime.datetime.now(tz=CHENGDU_TIMEZONE) + timedelta_obj
+            token_obj, res = UserToken.objects.update_or_create(user=user_obj,
+                                                                defaults={'token': new_token,
+                                                                          'expired': expire_datetime})
+        except ObjectDoesNotExist as e0:
+            result.code = 1002
+            result.error = "用户名或密码错误！"
+        except Exception as e1:
+            result.code = 1003
+            result.error = "获取Token异常：" + str(e1)
         else:
-            result['code'] = 1001
-            result['error'] = serializer_obj.errors
-        return Response(result)
+            result.user_token = token_obj.token
+            result.expired = token_obj.expired.strftime('%Y-%m-%d %H:%M:%S %Z')
+        return Response(result.dict)
 
 
 if __name__ == '__main__':

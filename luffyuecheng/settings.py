@@ -81,7 +81,7 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': 3306,
         'USER': 'root',
-        'PASSWORD': 'mariadb19901204',
+        'PASSWORD': '123456',
     }
 }
 
@@ -121,3 +121,8 @@ USE_TZ = True
 
 # STATIC_URL = 'http://127.0.0.1:8000/static/'
 STATIC_URL = '/static/'
+
+# Django Rest_framework
+REST_FRAMEWORK = {
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
+}
