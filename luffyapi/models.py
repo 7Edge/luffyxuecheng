@@ -1,4 +1,7 @@
+import hashlib
+
 from django.db import models
+from django.db.models import Q
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 
@@ -139,7 +142,7 @@ class Course(models.Model):
         (1, '下线'),
         (2, '预上线'),
     )
-    status = models.SmallIntegerField(verbose_name="课程状态", default=0)
+    status = models.SmallIntegerField(verbose_name="课程状态", choices=status_choices, default=0)
     template_id = models.SmallIntegerField(verbose_name="前端模板ID", default=1)
 
     # 反向查询课程价格按周期价格策略集
@@ -300,6 +303,211 @@ class HomeWork(models.Model):
         return "%s - %s" % (self.chapter, self.title)
 
 
+class HomeworkRecord(models.Model):
+    """学员作业记录及成绩"""
+    homework = models.ForeignKey(to="HomeWork", on_delete=models.CASCADE)
+    student = models.ForeignKey("EnrolledDegreeCourse", verbose_name="学生", on_delete=models.CASCADE)
+    score_choices = ((100, 'A+'),
+                     (90, 'A'),
+                     (85, 'B+'),
+                     (80, 'B'),
+                     (70, 'B-'),
+                     (60, 'C+'),
+                     (50, 'C'),
+                     (40, 'C-'),
+                     (-1, 'D'),
+                     (0, 'N/A'),
+                     (-100, 'COPY'),
+                     )
+    score = models.SmallIntegerField(verbose_name="分数", choices=score_choices, null=True, blank=True)
+    mentor = models.ForeignKey("Account", related_name="my_stu_homework_record", limit_choices_to={'role': 1},
+                               verbose_name="导师", on_delete=models.CASCADE)
+    mentor_comment = models.TextField(verbose_name="导师批注", blank=True, null=True)  # 导师
+    status_choice = (
+        (0, '待批改'),
+        (1, '已通过'),
+        (2, '不合格'),
+    )
+    status = models.SmallIntegerField(verbose_name='作业状态', choices=status_choice, default=0)
+
+    submit_num = models.SmallIntegerField(verbose_name='提交次数', default=0)
+    correct_date = models.DateTimeField('备注日期', blank=True, null=True)
+    note = models.TextField(blank=True, null=True)
+    date = models.DateTimeField("作业提交日期", auto_now_add=True)
+
+    check_date = models.DateTimeField("批改日期", null=True, blank=True)
+
+    update_time = models.DateTimeField(auto_now=True, verbose_name="提交日期")
+
+    # homework_path = models.CharField(verbose_name='作业路径', max_length=256,blank=True,null=True) 作业路径可以动态拿到，没必要存
+
+    reward_choice = ((0, '新提交'),
+                     (1, '按时提交'),
+                     (2, '未按时提交'),
+                     (3, '成绩已奖励'),
+                     (4, '成绩已处罚'),
+                     (5, '未作按时检测'),
+                     )
+    reward_status = models.SmallIntegerField(verbose_name='作业记录奖惩状态', default=0)
+
+    def __str__(self):
+        return "%s %s" % (self.homework, self.student)
+
+    class Meta:
+        verbose_name_plural = "13. 作业"
+        unique_together = ("homework", "student")
+
+
+# 导师组
+class MentorGroup(models.Model):
+    """
+    导师组
+    """
+    name = models.CharField(verbose_name='导师组名', max_length=64, unique=True)
+    brief = models.TextField(verbose_name='简介brief', blank=True, null=True)
+    mentors = models.ManyToManyField(verbose_name='组员', to='Account', limit_choices_to={'role': 1})
+
+    class Meta:
+        verbose_name_plural = '14. 导师组'
+
+    def __str__(self):
+        return self.name
+
+
+# 学位课程，每个模块的学习计划。计划时间，计划作业。
+class CourseSchedule(models.Model):
+    """课程进度计划表,针对学位课程，每开通一个模块，就为这个学员生成这个模块的推荐学习计划表，后面的奖惩均按此表进行"""
+    study_record = models.ForeignKey(to="StudyRecord", on_delete=models.CASCADE)
+    homework = models.ForeignKey(to="HomeWork", on_delete=models.CASCADE)
+    recommend_date = models.DateField("推荐交作业日期")
+
+    def __str__(self):
+        return "%s - %s - %s " % (self.study_record, self.homework, self.recommend_date)
+
+    class Meta:
+        unique_together = ('study_record', 'homework')
+        verbose_name_plural = "15. 课程模块计划表（学位课）"
+
+
+# 学位课程，每个学生报名的学位课程的每个模块有一个学习记录。
+class StudyRecord(models.Model):
+    """学位课程的模块学习进度，报名学位课程后，每个模块会立刻生成一条学习纪录"""
+    enrolled_degree_course = models.ForeignKey(to="EnrolledDegreeCourse", on_delete=models.CASCADE)
+    course_module = models.ForeignKey(to="Course", verbose_name="学位模块", limit_choices_to={'course_type': 2},
+                                      on_delete=models.CASCADE)
+    open_date = models.DateField(blank=True, null=True, verbose_name="开通日期")
+    end_date = models.DateField(blank=True, null=True, verbose_name="完成日期")
+    status_choices = ((2, '在学'), (1, '未开通'), (0, '已完成'))
+    status = models.SmallIntegerField(choices=status_choices, default=1)
+
+    class Meta:
+        verbose_name_plural = "16. 学习记录表（报名学位课程后，每个模块会立刻生成一条学习纪录）"
+        unique_together = ('enrolled_degree_course', 'course_module')
+
+    def __str__(self):
+        return '%s-%s' % (self.enrolled_degree_course, self.course_module)
+
+    def save(self, *args, **kwargs):
+        if self.course_module.degree_course_id != self.enrolled_degree_course.degree_course_id:
+            raise ValueError("学员要开通的模块必须与其报名的学位课程一致！")
+
+        super(StudyRecord, self).save(*args, **kwargs)
+
+
+# 报名学位课程，购买后学位课程后，要学习学位课程前，都需要进行报名，通过报名登记，触发相关报名后的操作。(报名的老师，触发第一模块开通，
+# 相关学习记录的生成)
+class EnrolledDegreeCourse(models.Model):
+    """已报名的学位课程"""
+    account = models.ForeignKey(to="Account", on_delete=models.CASCADE)
+    degree_course = models.ForeignKey(to="DegreeCourse", on_delete=models.CASCADE)
+    enrolled_date = models.DateTimeField(auto_now_add=True)
+    # 开通第一个模块时，再添加课程有效期，2年
+    valid_begin_date = models.DateField(verbose_name="有效期开始自", blank=True, null=True)
+    valid_end_date = models.DateField(verbose_name="有效期结束至", blank=True, null=True)
+    status_choices = (
+        (0, '在学中'),
+        (1, '休学中'),
+        (2, '已毕业'),
+        (3, '超时结业'),
+        (4, '未开始'),
+        # (3, '其它'),
+    )
+    study_status = models.SmallIntegerField(choices=status_choices, default=0)
+    mentor = models.ForeignKey(to="Account", verbose_name="导师", related_name='my_students',
+                               blank=True, null=True, limit_choices_to={'role': 1}, on_delete='')
+    mentor_fee_balance = models.PositiveIntegerField("导师费用余额", help_text="这个学员的导师费用，每有惩罚，需在此字段同时扣除")
+    order_detail = models.OneToOneField(to="OrderDetail", on_delete=models.CASCADE)  # 使订单购买后支持填写报名表
+
+    def __str__(self):
+        return "%s:%s" % (self.account, self.degree_course)
+
+    class Meta:
+        unique_together = ('account', 'degree_course')
+        verbose_name_plural = "17. 报名学位课"
+
+
+# 报名表格详情信息
+class DegreeRegistrationForm(models.Model):
+    """学位课程报名表"""
+    enrolled_degree = models.OneToOneField("EnrolledDegreeCourse", on_delete=models.CASCADE)
+    current_company = models.CharField(max_length=64, )
+    current_position = models.CharField(max_length=64, )
+    current_salary = models.IntegerField()
+    work_experience_choices = ((0, "应届生"),
+                               (1, "1年"),
+                               (2, "2年"),
+                               (3, "3年"),
+                               (4, "4年"),
+                               (5, "5年"),
+                               (6, "6年"),
+                               (7, "7年"),
+                               (8, "8年"),
+                               (9, "9年"),
+                               (10, "10年"),
+                               (11, "超过10年"),
+                               )
+    work_experience = models.IntegerField()
+    open_module = models.BooleanField("是否开通第1模块", default=True)
+    stu_specified_mentor = models.CharField("学员自行指定的导师名", max_length=32, blank=True, null=True)
+    study_plan_choices = ((0, "1-2小时/天"),
+                          (1, "2-3小时/天"),
+                          (2, "3-5小时/天"),
+                          (3, "5小时+/天"),
+                          )
+    study_plan = models.SmallIntegerField(choices=study_plan_choices, default=1)
+    why_take_this_course = models.TextField("报此课程原因", max_length=1024)
+    why_choose_us = models.TextField("为何选路飞", max_length=1024)
+    your_expectation = models.TextField("你的期待", max_length=1024)
+    memo = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "18. 报名表（学位课）"
+
+    def __str__(self):
+        return "%s" % self.enrolled_degree
+
+
+# 专题课程报名
+class EnrolledCourse(models.Model):
+    """已报名课程,不包括学位课程"""
+    account = models.ForeignKey(to="Account", on_delete=models.CASCADE)
+    course = models.ForeignKey("Course", limit_choices_to=~Q(course_type=2), on_delete=models.CASCADE)
+    enrolled_date = models.DateTimeField(auto_now_add=True)
+    valid_begin_date = models.DateField(verbose_name="有效期开始自")
+    valid_end_date = models.DateField(verbose_name="有效期结束至")
+    status_choices = ((0, '已开通'), (1, '已过期'))
+    status = models.SmallIntegerField(choices=status_choices, default=0)
+    order_detail = models.OneToOneField("OrderDetail", on_delete=models.CASCADE)  # 使订单购买后支持 课程评价
+
+    # order = models.ForeignKey("Order",blank=True,null=True)
+
+    def __str__(self):
+        return "%s:%s" % (self.account, self.course)
+
+    class Meta:
+        verbose_name_plural = "19. 报名专题课"
+
+
 # 价格策略 重要的表
 class PricePolicy(models.Model):
     """
@@ -323,17 +531,8 @@ class PricePolicy(models.Model):
     generic_fk_to_object = GenericForeignKey(ct_field='content_type', fk_field='object_id')
 
     class Meta:
-        verbose_name_plural = "13. 价格策略表"
+        verbose_name_plural = "20. 价格策略表"
         unique_together = ('object_id', 'content_type', 'price')
-
-
-# class Test(models.Model):
-#     name = models.CharField(verbose_name='名字', max_length=22)
-#
-#
-# class Test2(models.Model):
-#     test = models.ManyToManyField(to='Test')
-#     title = models.CharField(max_length=11)
 
 
 # 用户表
@@ -360,6 +559,25 @@ class UserToken(models.Model):
     def __str__(self):
         return "%s - %s" % (self.user, self.token)
 
+    # 暂时由代码层面实现
+    # def save(self, *args, **kwargs):
+    #     import datetime
+    #     # 根据用户名和时间生成唯一标识
+    #
+    #     self.token = self.generate_key()
+    #     self.created = datetime.datetime.utcnow()
+    #     return super(UserToken, self).save(*args, **kwargs)
+    #
+    # def generate_key(self):
+    #     import datetime
+    #
+    #     """根据用户名和时间生成唯一标识"""
+    #     username = self.user.user
+    #     now = str(datetime.datetime.now()).encode('utf-8')
+    #     md5 = hashlib.md5(username.encode('utf-8'))
+    #     md5.update(now)
+    #     return md5.hexdigest()
+
 
 # 账号表
 class Account(models.Model):
@@ -367,12 +585,140 @@ class Account(models.Model):
     账号
     """
     user = models.OneToOneField(verbose_name='用户', to="UserInfo", on_delete=models.CASCADE)
+    # 与第三方交互用户信息时，用这个uid,已避免泄露敏感用户信息给第三方。如，微信绑定时或者提供用户给CC视频。
+    uid = models.CharField(verbose_name='唯一ID', max_length=255, help_text='用户名的md5值,不用填写', unique=True)
+
+    email = models.EmailField(
+        verbose_name='email address',
+        max_length=255,
+        unique=True,
+        blank=True,
+        null=True
+    )
+    mobile = models.BigIntegerField(verbose_name="手机", unique=True, help_text="用于手机验证码登录")
+    qq = models.CharField(verbose_name="QQ", max_length=64, blank=True, null=True, db_index=True)
+    weixin = models.CharField(max_length=128, blank=True, null=True, db_index=True, verbose_name="微信")
+    wx_openid = models.CharField(max_length=128, blank=True, null=True, db_index=True, verbose_name="微信openid")
+
+    # 个人资料
+    # 职位相关信息，注册时必选
+    profession = models.ForeignKey("Profession", verbose_name="职位信息", blank=True, null=True, on_delete=models.CASCADE)
+    # 所在城市，注册时必填, 通过城市能找到对应的省份
+    city = models.ForeignKey("City", verbose_name="城市", blank=True, null=True, on_delete=models.CASCADE)
+    tags = models.ManyToManyField("Tags", blank=True, verbose_name="感兴趣的标签")
+    signature = models.CharField('个人签名', blank=True, null=True, max_length=255)
+    brief = models.TextField("个人介绍", blank=True, null=True)
+
+    gender_choices = ((0, '保密'), (1, '男'), (2, '女'))
+    gender = models.SmallIntegerField(choices=gender_choices, default=0, verbose_name="性别")
+    degree_choices = ((0, "学历"), (1, '高中以下'), (2, '中专／高中'), (3, '大专'), (4, '本科'), (5, '硕士'), (6, '博士'))
+    degree = models.PositiveSmallIntegerField(choices=degree_choices, blank=True,
+                                              null=True, default=0, verbose_name="学历")
+    birthday = models.DateField(blank=True, null=True, verbose_name="生日")
+    id_card = models.CharField(max_length=32, blank=True, null=True, verbose_name="身份证号或护照号")
+    # password = models.CharField('password', max_length=128,
+    #                             help_text=mark_safe('''<a class='btn-link' href='password'>重置密码</a>'''))
+
+    is_active = models.BooleanField(default=True, verbose_name="账户状态")
+    is_staff = models.BooleanField(verbose_name='staff status', default=False, help_text='决定着用户是否可登录管理后台')
+    name = models.CharField(max_length=32, default="", verbose_name="真实姓名")
+    head_img = models.CharField(max_length=128, default='/static/frontend/head_portrait/logo@2x.png',
+                                verbose_name="个人头像")
+
+    role_choices = ((0, '学生'),
+                    (1, '导师'),
+                    (2, '讲师'),
+                    (3, '管理员'))
+    role = models.SmallIntegerField(verbose_name='角色', choices=role_choices, default=0)
+
+    # 贝里余额
+    balance = models.PositiveIntegerField(default=0, verbose_name="可提现和使用余额")
+
+    memo = models.TextField('备注', blank=True, null=True, default=None)
+    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="注册时间")
 
     class Meta:
         verbose_name_plural = '203. 账户表'
 
     def __str__(self):
         return self.user
+
+    # 创建用户是，自动生成uid在保存用户时
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            md5_obj = hashlib.md5()
+            md5_obj.update(self.user.user.encode(encoding='utf8'))
+            self.uid = md5_obj.hexdigest()
+        super().save(*args, **kwargs)
+
+
+# 省份表
+class Province(models.Model):
+    code = models.IntegerField(verbose_name='省代码', unique=True)
+    name = models.CharField(verbose_name='省名称', max_length=64, unique=True)
+
+    class Meta:
+        verbose_name_plural = '204. 省份表'
+
+    def __str__(self):
+        return "%s - %s" % (self.code, self.name)
+
+
+# 城市表
+class City(models.Model):
+    code = models.IntegerField(verbose_name='城市码', unique=True)
+    name = models.CharField(verbose_name='城市名', max_length=64)
+    province = models.ForeignKey(verbose_name='省份', to='Province', on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name_plural = '205. 城市表'
+
+    def __str__(self):
+        return '%s - %s' % (self.code, self.name)
+
+
+# 行业表
+class Industry(models.Model):
+    code = models.IntegerField(verbose_name='行业代码', unique=True)
+    name = models.CharField(verbose_name='行业名称', max_length=128, unique=True)
+
+    class Meta:
+        verbose_name_plural = '206. 行业表'
+
+    def __str__(self):
+        return "%s - %s" % (self.code, self.name)
+
+
+# 职业表
+class Profession(models.Model):
+    """
+    职位关联所属行业
+    """
+    code = models.IntegerField(verbose_name='职业代码')
+    name = models.CharField(verbose_name='职业名称', max_length=64)
+    industry = models.ForeignKey(verbose_name='所属行业', to='Industry', on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name_plural = "207. 职业表"
+
+    def __str__(self):
+        return "%s - %s" % (self.code, self.name)
+
+
+# 用户反馈表
+class Feedback(models.Model):
+    name = models.CharField(verbose_name='标题', max_length=32, blank=True, null=True)
+    contact = models.CharField(verbose_name='联系方式', max_length=64, blank=True, null=True)
+    feedback_type_choices = ((0, '网站优化建议'), (1, '烂!我想吐槽'), (2, '网站bug反馈'))
+    feedback_type = models.SmallIntegerField(verbose_name='反馈类型', choices=feedback_type_choices, default=0)
+    content = models.TextField(verbose_name='反馈内容', max_length=1024)
+    date = models.DateTimeField(verbose_name='反馈时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = '208. 反馈表'
+
+    def __str__(self):
+        return self.name
 
 
 # 深科技 文章来源
@@ -506,3 +852,299 @@ class Tags(models.Model):
 
     def __str__(self):
         return "%s:%s" % (self.get_tag_type_display, self.name)
+
+
+# 奖惩规则
+class ScoreRule(models.Model):
+    """积分规则，学位课才有奖惩，涉及学位老师，学位学生"""
+    score_rule_choices = (
+        (0, '未按时交作业'),
+        (1, '未及时批改作业'),
+        (2, '作业成绩'),
+        (3, '未在规定时间内对学员进行跟进'),
+        (4, '未在规定时间内回复学员问题'),
+        (5, '收到学员投诉'),
+        (6, '导师相关'),
+        (7, '学位奖学金'),
+    )
+    rule = models.SmallIntegerField(choices=score_rule_choices, verbose_name="积分规则")
+    score_type_choices = ((0, '奖励'), (1, '惩罚'), (2, '初始分配'))
+    score_type = models.SmallIntegerField(choices=score_type_choices, verbose_name="奖惩", default=0)
+    score = models.IntegerField(help_text="扣分数与贝里相等,若为0则代表规则的值可以从别处取得")
+    # maturity_days = models.IntegerField("成熟周期", help_text="自纪录创建时开始计算")
+    memo = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return "%s-%s:%s" % (self.get_rule_display(), self.get_score_type_display(), self.score)
+
+    class Meta:
+        unique_together = ('rule', 'score_type')
+        verbose_name_plural = "6000001. 奖惩规则"
+
+
+# 奖惩记录
+class ScoreRecord(models.Model):
+    """积分奖惩记录，学位课才有奖惩"""
+    content_type = models.ForeignKey(ContentType, blank=True, null=True, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField(blank=True, null=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    degree_course = models.ForeignKey("DegreeCourse", blank=True, null=True, verbose_name="关联学位课程",
+                                      on_delete=models.CASCADE)
+    score_rule = models.ForeignKey("ScoreRule", verbose_name="关联规则", on_delete=models.CASCADE)
+    account = models.ForeignKey("Account", verbose_name="被执行人", on_delete=models.CASCADE)
+    score = models.IntegerField(
+        verbose_name="金额(贝里)")  # 这里单独有一个字段存积分而不是从score_rule里引用的原因是考虑到如果引用的话， # 一旦score_rule里的积分有变更，那么所有用户的历史积分也会被影响
+    received_score = models.IntegerField("实际到账金额贝里)", help_text="仅奖励用", default=0)
+    balance = models.PositiveIntegerField(verbose_name="奖金余额(贝里)")
+
+    maturity_date = models.DateField("成熟日期(可提现日期)")
+    applied = models.BooleanField(default=False, help_text="奖赏纪录是否已被执行", verbose_name="是否已被执行")
+    applied_date = models.DateTimeField(blank=True, null=True, verbose_name="事件生效日期")
+    date = models.DateTimeField(auto_now_add=True, verbose_name="事件触发日期")
+    memo = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return "%s-%s - %s - %s 奖金余额:%s" % (self.id, self.score_rule, self.account, self.score, self.balance)
+
+    class Meta:
+        verbose_name_plural = "6000002. 奖惩记录"
+
+
+# 课程优惠卷
+class Coupon(models.Model):
+    """优惠卷类型"""
+
+    name = models.CharField(verbose_name='优惠券名', max_length=64)
+    brief = models.TextField(verbose_name='优惠券介绍', null=True, blank=True)
+    coupon_type_choices = ((0, '通用券'),
+                           (1, '折扣券'),
+                           (2, '满减券'))
+    coupon_type = models.SmallIntegerField(verbose_name='券类型', choices=coupon_type_choices)
+
+    money_equivalent_value = models.IntegerField(verbose_name='等值货币', null=True, blank=True)
+    off_percent = models.PositiveIntegerField(verbose_name="折扣百分比", help_text="只针对折扣券，例7.9折，写79",
+                                              null=True, blank=True)
+    minimum_consume = models.PositiveIntegerField(verbose_name='最低消费', default=0, help_text="仅在满减券时填写此字段")
+
+    object_id = models.PositiveIntegerField(verbose_name='课程id', blank=True, null=True, help_text='通用卷不用绑定课程')
+    content_type = models.ForeignKey(verbose_name='课程类型', to=ContentType, null=True, blank=True,
+                                     on_delete=models.CASCADE)
+    content_object = GenericForeignKey()
+
+    quantity = models.PositiveIntegerField(verbose_name='优惠券数量', default=1)
+    open_date = models.DateField(verbose_name='优惠券领取开始时间')
+    close_date = models.DateField(verbose_name='优惠券领取结束时间')
+    valid_begin_date = models.DateField(verbose_name='有效期开始时间', null=True, blank=True)
+    valid_end_date = models.DateField(verbose_name='有效期结束时间', null=True, blank=True)
+    coupon_valid_days = models.PositiveIntegerField(verbose_name='优惠卷有效期(天)', blank=True, null=True,
+                                                    help_text='自从券被领取时开始算起')
+
+    date = models.DateTimeField(verbose_name='创建日期', auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "500001. 优惠卷类型"
+
+    def __str__(self):
+        return "%s(%s)" % (self.get_coupon_type_display(), self.name)
+
+    def save(self, *args, **kwargs):
+        if not self.coupon_valid_days or (self.valid_begin_date and self.valid_end_date):
+            if self.valid_begin_date and self.valid_end_date:
+                if self.valid_end_date <= self.valid_begin_date:
+                    raise ValueError("valid_end_date 有效期结束日期必须晚于 valid_begin_date ")
+            if self.coupon_valid_days == 0:
+                raise ValueError("coupon_valid_days 有效期不能为0")
+        if self.close_date < self.open_date:
+            raise ValueError("close_date 优惠券领取结束时间必须晚于 open_date优惠券领取开始时间 ")
+
+        super(Coupon, self).save(*args, **kwargs)
+
+
+# 优惠卷记录
+class CouponRecord(models.Model):
+    """优惠券发放，优惠券消费记录"""
+    account = models.ForeignKey(verbose_name='所属账户', to='UserInfo', on_delete=models.CASCADE)
+    coupon = models.ForeignKey(verbose_name="优惠券类型", to='Coupon', on_delete=models.CASCADE)
+    coupon_number = models.CharField(verbose_name='优惠卷编号', max_length=64, unique=True)
+
+    status_choices = ((0, '未使用'),
+                      (1, '已使用'),
+                      (2, '已过期'))
+    status = models.SmallIntegerField(verbose_name='优惠卷状态', choices=status_choices, default=0)
+    get_time = models.DateTimeField(verbose_name='领取时间', help_text='用户领取时间')
+    used_time = models.DateTimeField(verbose_name='使用时间', null=True, blank=True)
+
+    order = models.ForeignKey(verbose_name='使用的订单', to="Order", blank=True, null=True, on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name_plural = "500002. 优惠卷记录"
+
+    def __str__(self):
+        return '%s-%s-%s' % (self.account, self.coupon_number, self.status)
+
+
+# 订单表
+class Order(models.Model):
+    """订单"""
+    payment_type_choices = ((0, '微信'), (1, '支付宝'), (2, '优惠码'), (3, '贝里'))
+    payment_type = models.SmallIntegerField(choices=payment_type_choices)
+
+    payment_number = models.CharField(max_length=128, verbose_name="支付第3方订单号", null=True, blank=True)
+    order_number = models.CharField(max_length=128, verbose_name="订单号", unique=True)  # 考虑到订单合并支付的问题
+    account = models.ForeignKey(to="Account", verbose_name='账号', on_delete=models.CASCADE)
+    actual_amount = models.FloatField(verbose_name="实付金额")
+
+    status_choices = ((0, '交易成功'), (1, '待支付'), (2, '退费申请中'), (3, '已退费'), (4, '主动取消'), (5, '超时取消'))
+    status = models.SmallIntegerField(choices=status_choices, verbose_name="状态")
+    date = models.DateTimeField(auto_now_add=True, verbose_name="订单生成时间")
+    pay_time = models.DateTimeField(blank=True, null=True, verbose_name="付款时间")
+    cancel_time = models.DateTimeField(blank=True, null=True, verbose_name="订单取消时间")
+
+    class Meta:
+        verbose_name_plural = "70000001. 订单表"
+
+    def __str__(self):
+        return "%s" % self.order_number
+
+
+# 订单详情表
+class OrderDetail(models.Model):
+    """订单详情"""
+    order = models.ForeignKey(to="Order", on_delete=models.CASCADE)
+
+    content_type = models.ForeignKey(to=ContentType, on_delete=models.CASCADE)  # 可关联普通课程或学位
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    original_price = models.FloatField("课程原价")
+    price = models.FloatField("折后价格")
+    content = models.CharField(max_length=255, blank=True, null=True)  # ？
+    valid_period_display = models.CharField("有效期显示", max_length=32)  # 在订单页显示
+    valid_period = models.PositiveIntegerField("有效期(days)")  # 课程有效期
+    memo = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return "%s - %s - %s" % (self.order, self.content_type, self.price)
+
+    class Meta:
+        verbose_name_plural = "70000002. 订单详细"
+        unique_together = ("order", 'content_type', 'object_id')
+
+
+class TransactionRecord(models.Model):
+    """贝里交易纪录"""
+    account = models.ForeignKey("Account", on_delete=models.CASCADE)
+    amount = models.IntegerField("金额")
+    # balance = models.IntegerField("账户余额")
+    transaction_type_choices = ((0, '收入'), (1, '支出'), (2, '退款'), (3, "提现"))  # 2 为了处理 订单过期未支付时，锁定期贝里的回退
+    transaction_type = models.SmallIntegerField(choices=transaction_type_choices)
+
+    content_type = models.ForeignKey(ContentType, blank=True, null=True, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField(blank=True, null=True, verbose_name="关联对象")
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    transaction_number = models.CharField(unique=True, verbose_name="流水号", max_length=128)
+    date = models.DateTimeField(auto_now_add=True)
+    memo = models.CharField(max_length=128, blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "70000003. 贝里交易记录"
+
+    def __str__(self):
+        return "%s" % self.transaction_number
+
+
+class StuFollowUpRecord(models.Model):
+    """学员跟进记录"""
+    enrolled_degree_course = models.ForeignKey("EnrolledDegreeCourse", verbose_name="学生", on_delete=models.CASCADE)
+    mentor = models.ForeignKey("Account", related_name='mentor', limit_choices_to={'role': 1}, verbose_name="导师",
+                               on_delete=models.CASCADE)
+    followup_tool_choices = ((0, 'QQ'), (1, '微信'), (2, '电话'), (3, '系统通知'))
+    followup_tool = models.SmallIntegerField(choices=followup_tool_choices, default=1)
+    record = models.TextField(verbose_name="跟进记录")
+    attachment_path = models.CharField(max_length=128, blank=True, null=True, verbose_name="附件路径", help_text="跟进记录的截图等")
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "800000001. 学员跟进记录"
+
+    def __str__(self):
+        return "%s --%s --%s" % (self.enrolled_degree_course, self.record, self.date)
+
+
+class Question(models.Model):
+    """课程提问"""
+    name = models.CharField(max_length=128, blank=True, null=True, verbose_name="问题概要", db_index=True)
+    question_type_choices = ((0, '专题课程问题'), (1, '学位课程问题'))
+    question_type = models.SmallIntegerField(choices=question_type_choices, default=0, verbose_name="来源")
+    account = models.ForeignKey("Account", verbose_name="提问者", on_delete=models.CASCADE)
+    # 若是针对整个学位课程的提问，关联这个
+    degree_course = models.ForeignKey("DegreeCourse", blank=True, null=True, on_delete=models.CASCADE)
+    # 针对整个学位课程的提问不需关联特定课时
+    course_section = models.ForeignKey("CourseSection", blank=True, null=True, on_delete=models.CASCADE)
+    content = models.TextField(max_length=1024, verbose_name="问题内容")
+    enquiries_count = models.IntegerField(default=0, verbose_name="同问者计数")
+    attachment_path = models.CharField(max_length=128, blank=True, null=True, verbose_name="附件路径", help_text="问题记录的截图等")
+    date = models.DateTimeField(auto_now_add=True)
+    status_choices = ((0, '待解答'), (1, '已解答'), (2, '已关闭'))
+    status = models.SmallIntegerField(choices=status_choices, default=0)
+
+    class Meta:
+        verbose_name_plural = "800000002. 讨论区：课程提问"
+
+    def __str__(self):
+        return "%s" % self.name
+
+    def save(self, *args, **kwargs):
+        if self.degree_course is None and self.course_section is None:
+            raise ValueError("提的问题必须关联学位课程或具体课时！")
+
+        super(Question, self).save(*args, **kwargs)
+
+
+class Answer(models.Model):
+    """问题解答"""
+    question = models.ForeignKey("Question", verbose_name="问题", on_delete=models.CASCADE)
+    content = models.TextField(verbose_name="回答")
+    account = models.ForeignKey("Account", verbose_name="回答者", on_delete=models.CASCADE)
+    agree_number = models.IntegerField(default=0, verbose_name="点赞数")
+    disagree_number = models.IntegerField(default=0, verbose_name="点踩数")
+    answer_date = models.DateTimeField(auto_now=True, verbose_name="日期")
+
+    class Meta:
+        verbose_name_plural = "800000003. 讨论区：解答"
+
+    def __str__(self):
+        return "%s" % self.question
+
+
+class AnswerComment(models.Model):
+    """答案回复评论"""
+    answer = models.ForeignKey("Answer", on_delete=models.CASCADE)
+    reply_to = models.ForeignKey("self", blank=True, null=True, verbose_name="基于评论的评论", on_delete=models.CASCADE)
+    comment = models.TextField(max_length=512, verbose_name="评论内容")
+    attachment_path = models.CharField(max_length=128, blank=True, null=True, verbose_name="附件路径", help_text="跟进记录的截图等")
+    account = models.ForeignKey("Account", verbose_name="评论者", on_delete=models.CASCADE)
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "800000004. 讨论区：评论"
+
+    def __str__(self):
+        return "%s - %s" % (self.account, self.comment)
+
+
+class QACounter(models.Model):
+    """ 问题和回答的赞同数量统计 """
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    data_type_choices = ((0, '点赞'), (1, '踩'), (2, '同问'))
+    data_type = models.SmallIntegerField(choices=data_type_choices)
+    account = models.ForeignKey("Account", on_delete=models.CASCADE)
+    date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "800000005. 问题和回答的赞同数量统计"
+        unique_together = ("content_type", 'object_id', "account")

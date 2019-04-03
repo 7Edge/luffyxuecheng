@@ -6,23 +6,18 @@
 """
 课程相关视图
 """
-# from rest_framework.views import APIView
-from rest_framework import generics
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.decorators import action
-from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 
 from ..models import Course, CourseDetail, Chapters, CourseSubCategory, CourseCategory
 from ..serializers import CourseModelSerializer, CourseDetailModelSerializer, ChaptersModelSerializer
 from ..serializers import CourseSubCategoryModelSerializer, CourseCategoryModelSerializer
 
 
-# from ..renders import CustomJsonRender
-
-
 # 课程主分类ViewSet
 class CourseCategoryModelViewSet(ModelViewSet):
-    queryset = CourseCategory.objects.all().order_by('-pk')
+    queryset = CourseCategory.objects.all().order_by('pk')
     serializer_class = CourseCategoryModelSerializer
     lookup_field = 'pk'
     lookup_url_kwarg = 'pk'
@@ -30,24 +25,33 @@ class CourseCategoryModelViewSet(ModelViewSet):
     # versioning_class = URLPathVersioning
 
 
-class CourseSubCategoryModelViewSet(ModelViewSet):
+# 课程子类
+class CourseSubCategoryModelViewSet(ReadOnlyModelViewSet):
+    """
+    课程子类，支持读取，由于分类少不分页，支持获取获取子类下的课程（子类课程支持分页）
+    """
     queryset = CourseSubCategory.objects.all()
     serializer_class = CourseSubCategoryModelSerializer
     lookup_url_kwarg = 'pk'
+    pagination_class = None
 
     # 获取课程之类下的所有课程
     @action(methods=['get'], detail=True, url_path='courses')
     def get_courses(self, request, *args, **kwargs):
+        num_paginator = PageNumberPagination()
+        num_paginator.page_size_query_param = 'page_size'
         subcategory_obj = self.get_object()
-        courses = subcategory_obj.course_set.all()
-        serializer_obj = CourseModelSerializer(courses, many=True)
-        return Response(serializer_obj.data)
+        courses = subcategory_obj.course_set.all().order_by('id')
+        page_courses = num_paginator.paginate_queryset(courses, request, view=self)
+        serializer_obj = CourseModelSerializer(page_courses, many=True)
+        return num_paginator.get_paginated_response(serializer_obj.data)
 
 
 # 专题课
 class CoursesModelViewSet(ModelViewSet):
-    queryset = Course.objects.all()
+    queryset = Course.objects.all().order_by('pk')
     serializer_class = CourseModelSerializer
+
     # content_negotiation_class = []
 
 

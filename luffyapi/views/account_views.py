@@ -35,6 +35,20 @@ class AccountView(viewsets.GenericViewSet):
         response_ob = Response()
         return response_ob
 
+    # 登陆方式 帮助提示info
+    def get(self, request, *args, **kwargs):
+        login_prompt_info = {
+            'title': 'for login to get user_token',
+            'http_method': 'post',
+            'Content-Type': ['支持：', 'application/json', 'form-data'],
+            'content-key-value': {
+                'user': 'username',
+                'pwd': 'password',
+            },
+            'how to use token from response to pass auth': 'eg: http://127.0.0.1/mico/?token=xxxxx'
+        }
+        return Response(login_prompt_info)
+
     # 登录action
     def login(self, request, version):
         result = TokenResponse()
