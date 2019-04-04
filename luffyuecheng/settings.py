@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.admin',
     'luffyapi.apps.LuffyapiConfig',
     'rest_framework.apps.RestFrameworkConfig',
+    'cart.apps.CartConfig',
 ]
 
 MIDDLEWARE = [

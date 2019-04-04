@@ -30,7 +30,7 @@ luffyapi_router.register(r'course_sub_category', courses_views.CourseSubCategory
 auto_urlpatterns = luffyapi_router.urls
 urlpatterns = auto_urlpatterns + [
     re_path('^online/$', account_views.AccountView.as_view({'post': 'login', 'get': 'get'})),
-    re_path('^micro/$', cache_page(60*5)(micro_news_views.MicroView.as_view())),
+    re_path('^micro/$', cache_page(60 * 5)(micro_news_views.MicroView.as_view())),
     # re_path('course_sub_category/(?P<pk>)/courses/$',
     #         courses_views.CourseSubCategoryModelViewSet.as_view(actions={'get': 'get_courses'}))
 ]
