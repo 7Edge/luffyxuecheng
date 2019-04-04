@@ -103,7 +103,6 @@ CACHES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/2.0/ref/settings/#auth-password-validators
 
@@ -121,7 +120,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
@@ -150,3 +148,10 @@ REST_FRAMEWORK = {
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.CursorPagination',
     'PAGE_SIZE': 2,
 }
+
+# 购物车
+SHOPPING_CART_KEY = "shoppingcart_{user_id}_{course_id}"
+
+PAYMENT_CENTER_KEY = "paymentcenter_{user_id}_{course_id}"
+
+USER_GLOBAL_COUPON_KEY = "global_coupons_{user_id}"

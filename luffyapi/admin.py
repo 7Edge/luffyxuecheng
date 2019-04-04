@@ -4,7 +4,6 @@ from django.contrib import admin
 
 from luffyapi import models
 
-
 admin.site.register(models.CourseCategory)
 admin.site.register(models.CourseSubCategory)
 admin.site.register(models.DegreeCourse)
@@ -25,3 +24,6 @@ admin.site.register(models.Article)
 admin.site.register(models.Collection)
 admin.site.register(models.Comment)
 admin.site.register(models.Tags)
+
+admin.site.register(models.Coupon)
+admin.site.register(models.CouponRecord)

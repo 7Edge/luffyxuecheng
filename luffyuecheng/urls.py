@@ -18,7 +18,7 @@ from django.contrib.admin import site
 
 urlpatterns = [
     re_path('admin/', site.urls),
-    re_path('^api/(?P<version>\w+)/$', include(('luffyapi.urls', 'luffyapi'))),
+    re_path('^api/(?P<version>\w+)/', include(('luffyapi.urls', 'luffyapi'))),
     # 购物车/结算中心/支付接口，都在cart应用中
-    re_path('^api/(?P<version>\w+)/cart/$', include(('cart.urls', 'cart'), namespace='cart'))
+    re_path('^api/(?P<version>\w+)/cart/', include(('cart.urls', 'cart'), namespace='cart'))
 ]
