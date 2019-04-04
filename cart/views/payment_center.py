@@ -57,6 +57,11 @@ class PaymentCenterViewSet(ViewSet):
         user_obj = request.user
         course_list = request.data.getlist('course_list')
 
+        # 加入到结算中心，先得清空用户结算中心
+        print(redis_conn.keys(settings.PAYMENT_CENTER_KEY.format(user_id=user_obj.pk,
+                                                                 course_id='*')))
+
+
         # 格式化得到商品在redis中的key列表
         course_keys = [settings.SHOPPING_CART_KEY.format(user_id=user_obj.pk,
                                                          course_id=item) for item in course_list]
