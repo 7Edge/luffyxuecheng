@@ -5,10 +5,14 @@ from django.db.models import Q
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 
-
 # Create your models here.
 
-# 课程大分类表，前端/后端
+"""
+总共45张表
+"""
+
+
+# 1 课程大分类表，前端/后端
 class CourseCategory(models.Model):
     """
     课程大分类表
@@ -22,7 +26,7 @@ class CourseCategory(models.Model):
         return "%s" % self.name
 
 
-# 课程之分类表
+# 2 课程之分类表
 class CourseSubCategory(models.Model):
     """
     课程子分类表
@@ -37,7 +41,7 @@ class CourseSubCategory(models.Model):
         return "%s" % self.name
 
 
-# 学位课程
+# 3 学位课程
 class DegreeCourse(models.Model):
     """
     学位课程表
@@ -64,7 +68,7 @@ class DegreeCourse(models.Model):
         return self.name
 
 
-# 讲师 导师表
+# 4 讲师 导师表
 class Teacher(models.Model):
     """
     讲师 导师表
@@ -87,7 +91,7 @@ class Teacher(models.Model):
         return self.name
 
 
-# 学位奖学金表
+# 5 学位奖学金表
 class Scholarship(models.Model):
     """
     学位课程奖学金表
@@ -103,7 +107,7 @@ class Scholarship(models.Model):
         return "%s %s" % (self.degree_course, self.value)
 
 
-# 专题课程表
+# 6 专题课程表
 class Course(models.Model):
     """
     专题课程 或 学位课程中的子模块课程 表
@@ -158,7 +162,7 @@ class Course(models.Model):
         return self.title
 
 
-# 专题课程详情内容，一对一
+# 7 专题课程详情内容，一对一
 class CourseDetail(models.Model):
     """
     课程详情表
@@ -183,7 +187,7 @@ class CourseDetail(models.Model):
         return "%s" % self.course
 
 
-# 课程咨询常见问题
+# 8 课程咨询常见问题
 class OftenAskedQuestion(models.Model):
     """
     常见问题表，有一个联合主键
@@ -204,7 +208,7 @@ class OftenAskedQuestion(models.Model):
         return "%s-%s" % (self.generic_fk_to_object, self.question)
 
 
-# 课程大纲
+# 9 课程大纲
 class CourseOutline(models.Model):
     """
     课程大纲表
@@ -224,7 +228,7 @@ class CourseOutline(models.Model):
         return self.title
 
 
-# 课程章节
+# 10 课程章节
 class Chapters(models.Model):
     """
     章节表，课程的大模块
@@ -244,7 +248,7 @@ class Chapters(models.Model):
         return "%s(第%s章) %s" % (self.course, self.chapter, self.title)
 
 
-# 章节每节课
+# 11 章节每节课
 class CourseSection(models.Model):
     """
     每节课
@@ -274,7 +278,7 @@ class CourseSection(models.Model):
         return "%s-%s" % (self.chapter, self.name)
 
 
-# 作业
+# 12 作业
 class HomeWork(models.Model):
     """
     作业表
@@ -303,6 +307,7 @@ class HomeWork(models.Model):
         return "%s - %s" % (self.chapter, self.title)
 
 
+# 13 报名学生作业记录
 class HomeworkRecord(models.Model):
     """学员作业记录及成绩"""
     homework = models.ForeignKey(to="HomeWork", on_delete=models.CASCADE)
@@ -358,7 +363,7 @@ class HomeworkRecord(models.Model):
         unique_together = ("homework", "student")
 
 
-# 导师组
+# 14 导师组
 class MentorGroup(models.Model):
     """
     导师组
@@ -374,7 +379,7 @@ class MentorGroup(models.Model):
         return self.name
 
 
-# 学位课程，每个模块的学习计划。计划时间，计划作业。
+# 15 学位课程，每个模块的学习计划。计划时间，计划作业。
 class CourseSchedule(models.Model):
     """课程进度计划表,针对学位课程，每开通一个模块，就为这个学员生成这个模块的推荐学习计划表，后面的奖惩均按此表进行"""
     study_record = models.ForeignKey(to="StudyRecord", on_delete=models.CASCADE)
@@ -389,7 +394,7 @@ class CourseSchedule(models.Model):
         verbose_name_plural = "15. 课程模块计划表（学位课）"
 
 
-# 学位课程，每个学生报名的学位课程的每个模块有一个学习记录。
+# 16 学位课程，每个学生报名的学位课程的每个模块有一个学习记录。
 class StudyRecord(models.Model):
     """学位课程的模块学习进度，报名学位课程后，每个模块会立刻生成一条学习纪录"""
     enrolled_degree_course = models.ForeignKey(to="EnrolledDegreeCourse", on_delete=models.CASCADE)
@@ -414,7 +419,7 @@ class StudyRecord(models.Model):
         super(StudyRecord, self).save(*args, **kwargs)
 
 
-# 报名学位课程，购买后学位课程后，要学习学位课程前，都需要进行报名，通过报名登记，触发相关报名后的操作。(报名的老师，触发第一模块开通，
+# 17 报名学位课程，购买后学位课程后，要学习学位课程前，都需要进行报名，通过报名登记，触发相关报名后的操作。(报名的老师，触发第一模块开通，
 # 相关学习记录的生成)
 class EnrolledDegreeCourse(models.Model):
     """已报名的学位课程"""
@@ -446,7 +451,7 @@ class EnrolledDegreeCourse(models.Model):
         verbose_name_plural = "17. 报名学位课"
 
 
-# 报名表格详情信息
+# 18 报名表格详情信息
 class DegreeRegistrationForm(models.Model):
     """学位课程报名表"""
     enrolled_degree = models.OneToOneField("EnrolledDegreeCourse", on_delete=models.CASCADE)
@@ -487,7 +492,7 @@ class DegreeRegistrationForm(models.Model):
         return "%s" % self.enrolled_degree
 
 
-# 专题课程报名
+# 19 专题课程报名
 class EnrolledCourse(models.Model):
     """已报名课程,不包括学位课程"""
     account = models.ForeignKey(to="Account", on_delete=models.CASCADE)
@@ -508,7 +513,7 @@ class EnrolledCourse(models.Model):
         verbose_name_plural = "19. 报名专题课"
 
 
-# 价格策略 重要的表
+# 20 价格策略 重要的表
 class PricePolicy(models.Model):
     """
     价格策略表， 将学位课和专题课的价格策略都放在这里。主要策略的不同维度是周期不同
@@ -535,7 +540,7 @@ class PricePolicy(models.Model):
         unique_together = ('object_id', 'content_type', 'price')
 
 
-# 用户表
+# 21 用户表
 class UserInfo(models.Model):
     user = models.CharField(verbose_name='用户名', max_length=64)
     pwd = models.CharField(verbose_name='密码', max_length=64)
@@ -547,7 +552,7 @@ class UserInfo(models.Model):
         return self.user
 
 
-# token表
+# 22 token表
 class UserToken(models.Model):
     user = models.OneToOneField(verbose_name='用户', to='UserInfo', on_delete=models.CASCADE)
     token = models.CharField(verbose_name='token', max_length=128)
@@ -579,7 +584,7 @@ class UserToken(models.Model):
     #     return md5.hexdigest()
 
 
-# 账号表
+# 23 账号表
 class Account(models.Model):
     """
     账号
@@ -652,7 +657,7 @@ class Account(models.Model):
         super().save(*args, **kwargs)
 
 
-# 省份表
+# 24 省份表
 class Province(models.Model):
     code = models.IntegerField(verbose_name='省代码', unique=True)
     name = models.CharField(verbose_name='省名称', max_length=64, unique=True)
@@ -664,7 +669,7 @@ class Province(models.Model):
         return "%s - %s" % (self.code, self.name)
 
 
-# 城市表
+# 25 城市表
 class City(models.Model):
     code = models.IntegerField(verbose_name='城市码', unique=True)
     name = models.CharField(verbose_name='城市名', max_length=64)
@@ -677,7 +682,7 @@ class City(models.Model):
         return '%s - %s' % (self.code, self.name)
 
 
-# 行业表
+# 26 行业表
 class Industry(models.Model):
     code = models.IntegerField(verbose_name='行业代码', unique=True)
     name = models.CharField(verbose_name='行业名称', max_length=128, unique=True)
@@ -689,7 +694,7 @@ class Industry(models.Model):
         return "%s - %s" % (self.code, self.name)
 
 
-# 职业表
+# 27 职业表
 class Profession(models.Model):
     """
     职位关联所属行业
@@ -705,7 +710,7 @@ class Profession(models.Model):
         return "%s - %s" % (self.code, self.name)
 
 
-# 用户反馈表
+# 28 用户反馈表
 class Feedback(models.Model):
     name = models.CharField(verbose_name='标题', max_length=32, blank=True, null=True)
     contact = models.CharField(verbose_name='联系方式', max_length=64, blank=True, null=True)
@@ -721,7 +726,7 @@ class Feedback(models.Model):
         return self.name
 
 
-# 深科技 文章来源
+# 29 深科技 文章来源
 class ArticleSource(models.Model):
     """
     文章来源
@@ -735,7 +740,7 @@ class ArticleSource(models.Model):
         return self.name
 
 
-# 文章资讯
+# 30 文章资讯
 class Article(models.Model):
     """
     文章详情
@@ -793,7 +798,7 @@ class Article(models.Model):
         return self.title
 
 
-# 通用收藏表
+# 31 通用收藏表
 class Collection(models.Model):
     """
     通用收藏表
@@ -810,7 +815,7 @@ class Collection(models.Model):
         unique_together = ('content_type', 'object_id', 'account')
 
 
-# 通用评论表
+# 32 通用评论表
 class Comment(models.Model):
     """
     通用评论表
@@ -833,7 +838,7 @@ class Comment(models.Model):
         return self.content
 
 
-# 通用标签表
+# 33 通用标签表
 class Tags(models.Model):
     """
     这里的标签，不是通过contenttype,是利用一个分类，这种在关联查询时，就必须自己知道类型,不是用表名来分类。
@@ -854,7 +859,7 @@ class Tags(models.Model):
         return "%s:%s" % (self.get_tag_type_display, self.name)
 
 
-# 奖惩规则
+# 34 奖惩规则
 class ScoreRule(models.Model):
     """积分规则，学位课才有奖惩，涉及学位老师，学位学生"""
     score_rule_choices = (
@@ -882,7 +887,7 @@ class ScoreRule(models.Model):
         verbose_name_plural = "6000001. 奖惩规则"
 
 
-# 奖惩记录
+# 35 奖惩记录
 class ScoreRecord(models.Model):
     """积分奖惩记录，学位课才有奖惩"""
     content_type = models.ForeignKey(ContentType, blank=True, null=True, on_delete=models.CASCADE)
@@ -911,7 +916,7 @@ class ScoreRecord(models.Model):
         verbose_name_plural = "6000002. 奖惩记录"
 
 
-# 课程优惠卷
+# 36 课程优惠卷
 class Coupon(models.Model):
     """优惠卷类型"""
 
@@ -961,7 +966,7 @@ class Coupon(models.Model):
         super(Coupon, self).save(*args, **kwargs)
 
 
-# 优惠卷记录
+# 37 优惠卷记录
 class CouponRecord(models.Model):
     """优惠券发放，优惠券消费记录"""
     account = models.ForeignKey(verbose_name='所属账户', to='UserInfo', on_delete=models.CASCADE)
@@ -984,7 +989,7 @@ class CouponRecord(models.Model):
         return '%s-%s-%s' % (self.account, self.coupon_number, self.status)
 
 
-# 订单表
+# 38 订单表
 class Order(models.Model):
     """订单"""
     payment_type_choices = ((0, '微信'), (1, '支付宝'), (2, '优惠码'), (3, '贝里'))
@@ -1008,7 +1013,7 @@ class Order(models.Model):
         return "%s" % self.order_number
 
 
-# 订单详情表
+# 39 订单详情表
 class OrderDetail(models.Model):
     """订单详情"""
     order = models.ForeignKey(to="Order", on_delete=models.CASCADE)
@@ -1032,6 +1037,7 @@ class OrderDetail(models.Model):
         unique_together = ("order", 'content_type', 'object_id')
 
 
+# 40 贝里交易记录
 class TransactionRecord(models.Model):
     """贝里交易纪录"""
     account = models.ForeignKey("Account", on_delete=models.CASCADE)
@@ -1055,6 +1061,7 @@ class TransactionRecord(models.Model):
         return "%s" % self.transaction_number
 
 
+# 41
 class StuFollowUpRecord(models.Model):
     """学员跟进记录"""
     enrolled_degree_course = models.ForeignKey("EnrolledDegreeCourse", verbose_name="学生", on_delete=models.CASCADE)
@@ -1073,6 +1080,7 @@ class StuFollowUpRecord(models.Model):
         return "%s --%s --%s" % (self.enrolled_degree_course, self.record, self.date)
 
 
+# 42
 class Question(models.Model):
     """课程提问"""
     name = models.CharField(max_length=128, blank=True, null=True, verbose_name="问题概要", db_index=True)
@@ -1103,6 +1111,7 @@ class Question(models.Model):
         super(Question, self).save(*args, **kwargs)
 
 
+# 43
 class Answer(models.Model):
     """问题解答"""
     question = models.ForeignKey("Question", verbose_name="问题", on_delete=models.CASCADE)
@@ -1119,6 +1128,7 @@ class Answer(models.Model):
         return "%s" % self.question
 
 
+# 44
 class AnswerComment(models.Model):
     """答案回复评论"""
     answer = models.ForeignKey("Answer", on_delete=models.CASCADE)
@@ -1135,6 +1145,7 @@ class AnswerComment(models.Model):
         return "%s - %s" % (self.account, self.comment)
 
 
+# 45
 class QACounter(models.Model):
     """ 问题和回答的赞同数量统计 """
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
