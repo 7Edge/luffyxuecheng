@@ -128,7 +128,7 @@ class PaymentCenterViewSet(ViewSet):
 
             if coupon_type == 0:  # 立减
                 coupon_info['money_equivalent_value'] = coupon_item.coupon.money_equivalent_value
-            elif coupon_type == 2:
+            elif coupon_type == 2:  # 满减
                 coupon_info['money_equivalent_value'] = coupon_item.coupon.money_equivalent_value
                 coupon_info['minimum_consume'] = coupon_item.coupon.minimum_consume
             else:
@@ -188,12 +188,12 @@ class PaymentCenterViewSet(ViewSet):
 
         if not coupons:  # 对于结算中心为空的处理
             global_coupon_dict = {
-                'coupon': None,
+                'coupons': None,
                 'default_coupon': 0
             }
         else:
             global_coupon_dict = {
-                'coupon': json.loads(coupons.decode('utf8')),
+                'coupons': json.loads(coupons.decode('utf8')),
                 'default_coupon': default_coupon.decode('utf8')
             }
 
@@ -205,7 +205,7 @@ class PaymentCenterViewSet(ViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         """
-        用户提交商品id和优惠券id；对于通用优惠券只需要提供优惠券id
+        用户提交商品id和优惠券id；对于通用优惠券只需要提供优惠券coupon_id
         更新优惠卷,绑定商品和通用优惠卷都一起，通用优惠卷的商品course_id = 0 代表 是通用优惠卷的修改
         :param request:
         :param args:
@@ -218,11 +218,13 @@ class PaymentCenterViewSet(ViewSet):
         coupon_id = str(request.data.get('coupon_id'))
 
         # 通用优惠券更改
-        if not course_id:
+        if not course_id or course_id == '0':
             global_coupon_key = settings.USER_GLOBAL_COUPON_KEY.format(user_id=user_obj.pk)
 
-            if coupon_id != '0' and coupon_id not in format_hash_bytes2str(redis_conn, global_coupon_key)[
-                'coupons']:  # 检验优惠券id合法性
+            if coupon_id != '0' and coupon_id not in json.loads(
+                    format_hash_bytes2str(redis_conn, global_coupon_key)['coupons']):
+                # 检验优惠券id合法性
+
                 return Response({'error': '优惠券不存在错误！',
                                  'code': 1001})
 
