@@ -58,13 +58,13 @@ class PaymentCenterViewSet(ViewSet):
         course_list = request.data.getlist('course_list')
 
         # 加入到结算中心，先得清空用户结算中心
-        print(redis_conn.keys(settings.PAYMENT_CENTER_KEY.format(user_id=user_obj.pk,
-                                                                 course_id='*')))
 
         stock_keys = redis_conn.keys(settings.PAYMENT_CENTER_KEY.format(user_id=user_obj.pk,
                                                                         course_id='*'))
-        redis_conn.delete(*stock_keys)
-        redis_conn.delete(settings.USER_GLOBAL_COUPON_KEY.format(user_id=user_obj.pk))
+
+        if stock_keys:
+            redis_conn.delete(*stock_keys)
+            redis_conn.delete(settings.USER_GLOBAL_COUPON_KEY.format(user_id=user_obj.pk))
 
         # 格式化得到商品在redis中的key列表
         course_keys = [settings.SHOPPING_CART_KEY.format(user_id=user_obj.pk,
@@ -128,7 +128,7 @@ class PaymentCenterViewSet(ViewSet):
 
             if coupon_type == 0:  # 立减
                 coupon_info['money_equivalent_value'] = coupon_item.coupon.money_equivalent_value
-            elif coupon_type == 1:
+            elif coupon_type == 2:
                 coupon_info['money_equivalent_value'] = coupon_item.coupon.money_equivalent_value
                 coupon_info['minimum_consume'] = coupon_item.coupon.minimum_consume
             else:
