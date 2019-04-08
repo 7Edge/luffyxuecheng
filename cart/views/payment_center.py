@@ -183,10 +183,19 @@ class PaymentCenterViewSet(ViewSet):
         # 获取通用优惠券
         redis_global_coupon_key = settings.USER_GLOBAL_COUPON_KEY.format(user_id=user_obj.pk)
 
-        global_coupon_dict = {
-            'coupon': json.loads(redis_conn.hget(redis_global_coupon_key, 'coupons').decode('utf8')),
-            'default_coupon': redis_conn.hget(redis_global_coupon_key, 'default_coupon').decode('utf8')
-        }
+        coupons = redis_conn.hget(redis_global_coupon_key, 'coupons')
+        default_coupon = redis_conn.hget(redis_global_coupon_key, 'default_coupon')
+
+        if not coupons:  # 对于结算中心为空的处理
+            global_coupon_dict = {
+                'coupon': None,
+                'default_coupon': 0
+            }
+        else:
+            global_coupon_dict = {
+                'coupon': json.loads(coupons.decode('utf8')),
+                'default_coupon': default_coupon.decode('utf8')
+            }
 
         return Response({"code": 1000,
                          "data": {
