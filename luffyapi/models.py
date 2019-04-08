@@ -539,6 +539,9 @@ class PricePolicy(models.Model):
         verbose_name_plural = "20. 价格策略表"
         unique_together = ('object_id', 'content_type', 'price')
 
+    def __str__(self):
+        return "%s - 周期（%s）" % (self.generic_fk_to_object, self.get_period_display())
+
 
 # 21 用户表
 class UserInfo(models.Model):

@@ -61,6 +61,10 @@ class PaymentCenterViewSet(ViewSet):
         print(redis_conn.keys(settings.PAYMENT_CENTER_KEY.format(user_id=user_obj.pk,
                                                                  course_id='*')))
 
+        stock_keys = redis_conn.keys(settings.PAYMENT_CENTER_KEY.format(user_id=user_obj.pk,
+                                                                        course_id='*'))
+        redis_conn.delete(*stock_keys)
+        redis_conn.delete(settings.USER_GLOBAL_COUPON_KEY.format(user_id=user_obj.pk))
 
         # 格式化得到商品在redis中的key列表
         course_keys = [settings.SHOPPING_CART_KEY.format(user_id=user_obj.pk,
