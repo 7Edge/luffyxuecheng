@@ -594,7 +594,7 @@ class Account(models.Model):
     """
     user = models.OneToOneField(verbose_name='用户', to="UserInfo", on_delete=models.CASCADE)
     # 与第三方交互用户信息时，用这个uid,已避免泄露敏感用户信息给第三方。如，微信绑定时或者提供用户给CC视频。
-    uid = models.CharField(verbose_name='唯一ID', max_length=255, help_text='用户名的md5值,不用填写', unique=True)
+    uid = models.CharField(verbose_name='唯一ID', max_length=255, help_text='用户名的md5值,不用填写', unique=True, blank=True)
 
     email = models.EmailField(
         verbose_name='email address',
@@ -649,7 +649,7 @@ class Account(models.Model):
         verbose_name_plural = '203. 账户表'
 
     def __str__(self):
-        return self.user
+        return str(self.user)
 
     # 创建用户是，自动生成uid在保存用户时
     def save(self, *args, **kwargs):
