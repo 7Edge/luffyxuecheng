@@ -105,3 +105,6 @@ venv.bak/
 
 # pycharm
 .idea/
+
+# rsa key path
+luffyapi/keys/

@@ -43,3 +43,6 @@ payment_template = {
 
      }
 }
+
+
+from alipay.aop.api.AlipayClientConfig import AlipayClientConfig

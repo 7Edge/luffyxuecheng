@@ -31,6 +31,10 @@ class AliPay(object):
         else:
             self.__gateway = "https://openapi.alipay.com/gateway.do"
 
+    @property
+    def gateway(self):
+        return self.__gateway
+
     def direct_pay(self, subject, out_trade_no, total_amount, return_url=None, **kwargs):
         biz_content = {
             "subject": subject,
