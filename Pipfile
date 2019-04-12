@@ -14,7 +14,6 @@ djangorestframework = "*"
 redis = "*"
 pycryptodome = "*"
 alipay-sdk-python = "*"
-pycrypto = "==2.6.1"
 django-redis = "*"
 
 [requires]
