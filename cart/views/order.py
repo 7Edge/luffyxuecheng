@@ -37,9 +37,9 @@ redis_conn = get_redis_connection()
 def get_alipay():
     obj = alipay.AliPay(
         appid=configuration.appid,
-        app_notify_url=configuration.callback_pre_url + reverse(viewname='cart:pay_notify', args={'version': 'v1'}),
+        app_notify_url=configuration.callback_pre_url + reverse(viewname='cart:pay_notify', kwargs={'version': 'v1'}),
         # 如果支付成功，支付宝会向这个地址发送POST请求（校验是否支付已经完成）
-        return_url=configuration.callback_pre_url + reverse(viewname='cart:pay_result', args={'version': 'v1'}),
+        return_url=configuration.callback_pre_url + reverse(viewname='cart:pay_result', kwargs={'version': 'v1'}),
         # 如果支付成功，重定向回到你的网站的地址。
         alipay_public_key_path=configuration.ali_pub_key_path,  # 支付宝公钥
         app_private_key_path=configuration.app_private_key_path,  # 应用私钥
